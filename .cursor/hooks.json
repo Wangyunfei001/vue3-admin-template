@@ -1,0 +1,62 @@
+{
+  "$schema": "https://cursor.sh/schemas/hooks.json",
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "matcher": "tool == 'Write' && tool_input.path matches '.*\\.(ts|tsx|js|jsx)$'",
+        "command": "echo '📝 提醒：确保代码符合对应的 Spec 定义' >&2"
+      },
+      {
+        "matcher": "tool == 'Bash' && tool_input.command matches '(npm|pnpm|yarn|cargo|pytest|jest).*'",
+        "command": "if [ -z \"$TMUX\" ]; then echo '[Hook] 建议在 tmux 中运行以便会话持久化' >&2; fi"
+      },
+      {
+        "matcher": "tool == 'Bash' && tool_input.command matches 'git push.*'",
+        "command": "echo '⚠️ 即将 Push 到远程仓库，请确认代码已审查通过' >&2"
+      },
+      {
+        "matcher": "tool == 'Bash' && tool_input.command matches 'git push.*(main|master).*'",
+        "command": "echo '🚫 禁止直接 Push 到 main/master 分支，请创建 PR' >&2; exit 2"
+      }
+    ],
+    "postToolUse": [
+      {
+        "matcher": "tool == 'Write' && tool_input.path matches '.*\\.tsx?$'",
+        "command": "npx tsc --noEmit --pretty 2>&1 | head -20 || true"
+      },
+      {
+        "matcher": "tool == 'Write' && tool_input.path matches '.*\\.(ts|tsx|js|jsx|css|json)$'",
+        "command": "npx prettier --write \"${TOOL_INPUT_PATH}\" 2>/dev/null || true"
+      },
+      {
+        "matcher": "tool == 'Write' && tool_input.path matches '.*\\.(ts|tsx|js|jsx)$'",
+        "command": "if grep -n 'console\\.log' \"${TOOL_INPUT_PATH}\" 2>/dev/null; then echo '⚠️ 发现 console.log，请移除或替换为 logger' >&2; fi || true"
+      },
+      {
+        "matcher": "tool == 'Write' && tool_input.path matches 'src/(api|types)/.*\\.ts$'",
+        "command": "echo '📚 提醒：API/类型定义已变更，记得运行 /sync 同步文档' >&2"
+      },
+      {
+        "matcher": "tool == 'Write' && tool_input.path matches '.*(auth|payment|admin|security).*'",
+        "command": "echo '🔐 安全敏感文件已变更，建议运行 /review --security-only' >&2"
+      }
+    ],
+    "beforeSubmitPrompt": [
+      {
+        "matcher": "user_prompt matches '.*(报错|bug|错误|异常|TypeError|Error:).*'",
+        "command": "echo '🐛 检测到可能是 Bug 排查，建议使用 @bug-hunter 进行系统性排查' >&2"
+      }
+    ],
+    "stop": [
+      {
+        "matcher": "*",
+        "command": "echo '📊 本次会话变更文件:' >&2; git diff --name-only 2>/dev/null | head -10 >&2 || true"
+      },
+      {
+        "matcher": "*",
+        "command": "if git diff --name-only 2>/dev/null | grep -q 'src/'; then echo '📝 提醒：代码已变更，下次会话开始时运行 /sync 同步文档' >&2; fi || true"
+      }
+    ]
+  }
+}
