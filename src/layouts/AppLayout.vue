@@ -6,11 +6,13 @@ import LocaleSwitch from '@/components/LocaleSwitch.vue'
 import ThemeSwitch from '@/components/ThemeSwitch.vue'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
+import { useUserStore } from '@/stores/user'
 import { fetchMenus } from '@/api/navigation'
 import type { MenuItem } from '@/types/navigation'
 
 const appStore = useAppStore()
 const authStore = useAuthStore()
+const userStore = useUserStore()
 const router = useRouter()
 const { t } = useI18n()
 
@@ -29,6 +31,7 @@ async function loadMenus() {
 
 async function handleLogout() {
   await authStore.logout()
+  userStore.reset()
   await router.push('/login')
 }
 
@@ -42,6 +45,25 @@ watch(
     void loadMenus()
   },
 )
+
+watch(
+  () => authStore.user?.avatarUrl,
+  (avatarUrl) => {
+    if (!avatarUrl) return
+    if (userStore.profile) {
+      userStore.setAvatarUrl(avatarUrl)
+      return
+    }
+    userStore.setProfile({
+      id: authStore.user?.id ?? 'unknown',
+      nickname: authStore.user?.name ?? 'User',
+      email: '',
+      phone: '',
+      avatarUrl,
+    })
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -53,6 +75,12 @@ watch(
           <h1 class="text-base font-semibold">{{ t('appTitle') }}</h1>
         </div>
         <div class="flex items-center gap-2">
+          <img
+            v-if="userStore.avatarUrl"
+            :src="userStore.avatarUrl"
+            alt="global-avatar"
+            class="h-8 w-8 rounded-full border border-slate-300 object-cover dark:border-slate-600"
+          />
           <LocaleSwitch />
           <ThemeSwitch />
           <button class="btn" @click="handleLogout">{{ t('common.logout') }}</button>

@@ -3,10 +3,12 @@ import type MockAdapter from 'axios-mock-adapter'
 const menus = {
   'zh-CN': [
     { id: 'dashboard', title: '首页', path: '/' },
+    { id: 'user-center', title: '用户中心', path: '/user-center' },
     { id: 'forbidden', title: '无权限', path: '/forbidden-demo' },
   ],
   'en-US': [
     { id: 'dashboard', title: 'Home', path: '/' },
+    { id: 'user-center', title: 'User Center', path: '/user-center' },
     { id: 'forbidden', title: 'Forbidden', path: '/forbidden-demo' },
   ],
 }

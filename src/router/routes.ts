@@ -25,6 +25,12 @@ export const routes: RouteRecordRaw[] = [
         component: () => import('@/views/error/ForbiddenView.vue'),
         meta: { requiresAuth: true, permissions: ['system:forbidden:view'] },
       },
+      {
+        path: 'user-center',
+        name: 'user-center',
+        component: () => import('@/views/user-center/UserCenterView.vue'),
+        meta: { requiresAuth: true },
+      },
     ],
   },
   {
