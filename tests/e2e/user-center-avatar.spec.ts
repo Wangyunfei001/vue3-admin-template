@@ -1,14 +1,20 @@
 import { expect, test } from '@playwright/test'
 import { Buffer } from 'node:buffer'
 
-test('uploads avatar with crop flow', async ({ page }) => {
+async function loginAsAdmin(page: import('@playwright/test').Page) {
   await page.goto('/login')
   await page.getByTestId('username-input').fill('admin')
   await page.getByTestId('password-input').fill('123456')
   await page.getByTestId('login-submit').click()
+  await expect(page).toHaveURL('/')
+}
+
+test('uploads avatar with crop flow', async ({ page }) => {
+  await loginAsAdmin(page)
 
   await page.goto('/user-center')
-  await expect(page.getByText(/用户中心|User Center/i)).toBeVisible()
+  await expect(page).toHaveURL(/\/user-center$/)
+  await expect(page.getByTestId('avatar-upload-trigger')).toBeVisible({ timeout: 10_000 })
 
   const pngBuffer = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y4f9l0AAAAASUVORK5CYII=',
@@ -27,13 +33,11 @@ test('uploads avatar with crop flow', async ({ page }) => {
 })
 
 test('rejects non-png avatar file', async ({ page }) => {
-  await page.goto('/login')
-  await page.getByTestId('username-input').fill('admin')
-  await page.getByTestId('password-input').fill('123456')
-  await page.getByTestId('login-submit').click()
+  await loginAsAdmin(page)
 
   await page.goto('/user-center')
-  await expect(page.getByText(/用户中心|User Center/i)).toBeVisible()
+  await expect(page).toHaveURL(/\/user-center$/)
+  await expect(page.getByTestId('avatar-upload-trigger')).toBeVisible({ timeout: 10_000 })
 
   await page.getByTestId('avatar-upload-input').setInputFiles({
     name: 'avatar.jpg',
