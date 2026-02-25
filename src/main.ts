@@ -23,3 +23,4 @@ async function bootstrap() {
 }
 
 bootstrap()
+globalThis.console.log('hook test')

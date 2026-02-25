@@ -1,61 +1,65 @@
 {
-  "$schema": "https://cursor.sh/schemas/hooks.json",
   "version": 1,
   "hooks": {
     "preToolUse": [
       {
-        "matcher": "tool == 'Write' && tool_input.path matches '.*\\.(ts|tsx|js|jsx)$'",
-        "command": "echo '📝 提醒：确保代码符合对应的 Spec 定义' >&2; echo '{\"ok\":true}'"
+        "matcher": "Write",
+        "command": "if echo \"${TOOL_INPUT_PATH:-}\" | grep -Eq '\\.(ts|tsx|js|jsx)$'; then echo 'Ensure changed code still matches the approved spec.' >&2; fi"
       },
       {
-        "matcher": "tool == 'Bash' && tool_input.command matches '(npm|pnpm|yarn|cargo|pytest|jest).*'",
-        "command": "if [ -z \"$TMUX\" ]; then echo '[Hook] 建议在 tmux 中运行以便会话持久化' >&2; fi; echo '{\"ok\":true}'"
+        "matcher": "Shell",
+        "command": "if echo \"${TOOL_INPUT_COMMAND:-}\" | grep -Eq '^git push'; then echo 'About to push changes. Confirm review and tests are complete.' >&2; fi"
       },
       {
-        "matcher": "tool == 'Bash' && tool_input.command matches 'git push.*'",
-        "command": "echo '⚠️ 即将 Push 到远程仓库，请确认代码已审查通过' >&2; echo '{\"ok\":true}'"
+        "matcher": "Shell",
+        "command": "if echo \"${TOOL_INPUT_COMMAND:-}\" | grep -Eq '^git push.*(main|master)( |$)'; then echo 'Direct pushes to main/master are blocked. Use a PR flow.' >&2; exit 2; fi"
       },
       {
-        "matcher": "tool == 'Bash' && tool_input.command matches 'git push.*(main|master).*'",
-        "command": "echo '🚫 禁止直接 Push 到 main/master 分支，请创建 PR' >&2; echo '{\"ok\":false,\"blocked\":true,\"reason\":\"push_main_blocked\"}'; exit 2"
+        "matcher": "Shell",
+        "command": "if echo \"${TOOL_INPUT_COMMAND:-}\" | grep -Eq '^(npm|pnpm|yarn|cargo|pytest|jest)'; then if [ -z \"$TMUX\" ]; then echo '[Compat] Recommend tmux for long-running command resilience.' >&2; fi; fi"
+      },
+      {
+        "matcher": "*",
+        "command": "if [ -x \"$HOME/.cursor/hooks/observe.sh\" ]; then \"$HOME/.cursor/hooks/observe.sh\" pre || true; fi"
       }
     ],
     "postToolUse": [
       {
-        "matcher": "tool == 'Write' && tool_input.path matches '.*\\.tsx?$'",
-        "command": "npx tsc --noEmit --pretty 2>&1 | head -20 >&2 || true; echo '{\"ok\":true}'"
+        "matcher": "Write",
+        "command": "if echo \"${TOOL_INPUT_PATH:-}\" | grep -Eq '\\.tsx?$'; then npx tsc --noEmit --pretty 2>&1 | head -20 || true; fi"
       },
       {
-        "matcher": "tool == 'Write' && tool_input.path matches '.*\\.(ts|tsx|js|jsx|css|json)$'",
-        "command": "npx prettier --write \"${TOOL_INPUT_PATH}\" >/dev/null 2>&1 || true; echo '{\"ok\":true}'"
+        "matcher": "Write",
+        "command": "if echo \"${TOOL_INPUT_PATH:-}\" | grep -Eq '\\.(ts|tsx|js|jsx|css|json)$'; then npx prettier --write \"${TOOL_INPUT_PATH}\" 2>/dev/null || true; fi"
       },
       {
-        "matcher": "tool == 'Write' && tool_input.path matches '.*\\.(ts|tsx|js|jsx)$'",
-        "command": "if grep -n 'console\\.log' \"${TOOL_INPUT_PATH}\" >/dev/null 2>&1; then echo '⚠️ 发现 console.log，请移除或替换为 logger' >&2; fi || true; echo '{\"ok\":true}'"
+        "matcher": "Write",
+        "command": "if echo \"${TOOL_INPUT_PATH:-}\" | grep -Eq '\\.(ts|tsx|js|jsx)$'; then if grep -n 'console\\.log' \"${TOOL_INPUT_PATH}\" 2>/dev/null; then echo '[Compat] console.log detected; replace with project logger when possible.' >&2; fi; fi || true"
       },
       {
-        "matcher": "tool == 'Write' && tool_input.path matches 'src/(api|types)/.*\\.ts$'",
-        "command": "echo '📚 提醒：API/类型定义已变更，记得运行 /sync 同步文档' >&2; echo '{\"ok\":true}'"
+        "matcher": "Write",
+        "command": "if echo \"${TOOL_INPUT_PATH:-}\" | grep -Eq '^src/(api|types)/.*\\.ts$'; then echo '[Compat] API/type changed. Consider /sync to update specs/docs.' >&2; fi"
       },
       {
-        "matcher": "tool == 'Write' && tool_input.path matches '.*(auth|payment|admin|security).*'",
-        "command": "echo '🔐 安全敏感文件已变更，建议运行 /review --security-only' >&2; echo '{\"ok\":true}'"
+        "matcher": "Write",
+        "command": "if echo \"${TOOL_INPUT_PATH:-}\" | grep -Eqi '(auth|payment|admin|security)'; then echo '[Compat] Sensitive area touched. Consider /review --security-only.' >&2; fi"
+      },
+      {
+        "matcher": "*",
+        "command": "if [ -x \"$HOME/.cursor/hooks/observe.sh\" ]; then \"$HOME/.cursor/hooks/observe.sh\" post || true; fi"
       }
     ],
     "beforeSubmitPrompt": [
       {
-        "matcher": "user_prompt matches '.*(报错|bug|错误|异常|TypeError|Error:).*'",
-        "command": "echo '🐛 检测到可能是 Bug 排查，建议使用 @bug-hunter 进行系统性排查' >&2; echo '{\"ok\":true}'"
+        "command": "if echo \"${USER_PROMPT:-}\" | grep -Eqi '(报错|bug|错误|异常|TypeError|Error:)'; then echo 'Bug-like prompt detected. Consider using @bug-hunter for structured diagnosis.' >&2; fi"
       }
     ],
     "stop": [
       {
-        "matcher": "*",
-        "command": "echo '📊 本次会话变更文件:' >&2; git diff --name-only 2>/dev/null | head -10 >&2 || true; echo '{\"ok\":true}'"
+        "command": "echo 'Changed files in current session:' && git diff --name-only 2>/dev/null | head -10 || true"
       },
       {
-        "matcher": "*",
-        "command": "if git diff --name-only 2>/dev/null | grep -q 'src/'; then echo '📝 提醒：代码已变更，下次会话开始时运行 /sync 同步文档' >&2; fi || true; echo '{\"ok\":true}'"
+        "command": "if git diff --name-only 2>/dev/null | grep -q 'src/'; then echo 'Code changed. Consider running /sync to keep docs aligned.' >&2; fi || true"
       }
     ]
   }
